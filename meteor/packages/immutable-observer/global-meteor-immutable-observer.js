@@ -118,7 +118,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  });
 	}
 
-	function ImmutableMapObserver(cursor) {
+	function ImmutableMapObserver(cursor, callback) {
 	  var _documents = undefined;
 	  var dep = new Tracker.Dependency();
 
@@ -130,20 +130,34 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var initialDocuments = {};
 	  var handle = cursor.observeChanges({
 	    added: function added(id, fields) {
-	      fields._id = id;
+	      fields._id = id._str || id;
 	      if (initialDocuments) {
-	        initialDocuments[id] = _immutable2['default'].fromJS(fields);
+	        initialDocuments[fields._id] = _immutable2['default'].fromJS(fields);
 	      } else {
-	        update(_documents.set(id, _immutable2['default'].fromJS(fields)));
+	        update(_documents.set(fields._id, _immutable2['default'].fromJS(fields)));
+	      }
+
+	      if (callback) {
+	        typeof callback === 'object' ? callback.added() : callback();
 	      }
 	    },
 	    changed: function changed(id, fields) {
-	      update(_documents.update(id, function (document) {
-	        return mergeChanges(document, fields);
+	      var _id = id._str || id;
+	      update(_documents.update(_id, function (doc) {
+	        return mergeChanges(doc, fields);
 	      }));
+
+	      if (callback) {
+	        typeof callback === 'object' ? callback.changed() : callback();
+	      }
 	    },
 	    removed: function removed(id) {
-	      update(_documents['delete'](id));
+	      var _id = id._str || id;
+	      update(_documents['delete'](_id));
+
+	      if (callback) {
+	        typeof callback === 'object' ? callback.removed() : callback();
+	      }
 	    }
 	  });
 	  _documents = _immutable2['default'].Map(initialDocuments);

@@ -18,7 +18,7 @@ function mergeChanges(document, fields) {
   });
 }
 
-export default function ImmutableMapObserver(cursor) {
+export default function ImmutableMapObserver(cursor, callback) {
   let documents;
   let dep = new Tracker.Dependency();
 
@@ -30,19 +30,33 @@ export default function ImmutableMapObserver(cursor) {
   let initialDocuments = {};
   let handle = cursor.observeChanges({
     added: (id, fields) => {
-      fields._id = id;
+      fields._id = id._str || id;
       if (initialDocuments) {
-        initialDocuments[id] = Immutable.fromJS(fields);
+        initialDocuments[fields._id] = Immutable.fromJS(fields);
       }
       else {
-        update(documents.set(id, Immutable.fromJS(fields)));
+        update(documents.set(fields._id, Immutable.fromJS(fields)));
+      }
+
+      if (callback) {
+        typeof callback === 'object' ? callback.added() : callback()
       }
     },
     changed: (id, fields) => {
-      update(documents.update(id, document => mergeChanges(document, fields)));
+      let _id = id._str || id
+      update(documents.update(_id, doc => mergeChanges(doc, fields)));
+
+      if (callback) {
+        typeof callback === 'object' ? callback.changed() : callback()
+      }
     },
     removed: (id) => {
-      update(documents.delete(id));
+      let _id = id._str || id
+      update(documents.delete(_id));
+
+      if (callback) {
+        typeof callback === 'object' ? callback.removed() : callback()
+      }
     },
   });
   documents = Immutable.Map(initialDocuments);
@@ -57,7 +71,7 @@ export default function ImmutableMapObserver(cursor) {
   return {
     documents() {
       dep.depend();
-      return documents; 
+      return documents;
     },
     stop() {
       handle.stop();
